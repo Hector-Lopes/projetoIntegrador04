@@ -3,10 +3,13 @@ import { Search, Plus, FileText, Download, X, Loader2 } from "lucide-react";
 
 export default function NotasFiscaisPage() {
 	const [notas, setNotas] = useState([]);
-	const [listaPacientes, setListaPacientes] = useState([]); // <--- ESTADO NOVO: Lista para o Select
+	const [listaPacientes, setListaPacientes] = useState([]);
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [searchTerm, setSearchTerm] = useState("");
+
+	// Estado de Erros
+	const [errors, setErrors] = useState({});
 
 	const [formData, setFormData] = useState({
 		pacienteId: "",
@@ -19,10 +22,8 @@ export default function NotasFiscaisPage() {
 		valor: "",
 	});
 
-	// 1. BUSCAR DADOS (NOTAS + PACIENTES)
 	const fetchData = async () => {
 		try {
-			// Busca Histórico de Notas
 			const resNotas = await fetch("/api/nfe");
 			if (resNotas.ok) setNotas(await resNotas.json());
 
@@ -34,7 +35,6 @@ export default function NotasFiscaisPage() {
 
 			if (response.ok) {
 				const data = await response.json();
-				console.log(data);
 				setListaPacientes(data);
 			}
 		} catch (error) {
@@ -46,10 +46,8 @@ export default function NotasFiscaisPage() {
 		fetchData();
 	}, []);
 
-	// 2. LÓGICA DO SELECT (AUTO-PREENCHER)
 	const handlePacienteChange = (e) => {
 		const pid = e.target.value;
-
 		const pacienteSelecionado = listaPacientes.find(
 			(p) => String(p.id) === pid
 		);
@@ -57,17 +55,18 @@ export default function NotasFiscaisPage() {
 		if (pacienteSelecionado) {
 			setFormData((prev) => ({
 				...prev,
-				pacienteId: pid, // <--- ATUALIZA O SELECT
+				pacienteId: pid,
 				nomeCliente: pacienteSelecionado.nome,
 				cpfCnpj: pacienteSelecionado.cpf,
 				enderecoCompleto: pacienteSelecionado.endereco || "",
 				bairro: "",
 				municipioUf: "",
 			}));
+			setErrors({}); // Limpa erros ao selecionar paciente
 		} else {
 			setFormData((prev) => ({
 				...prev,
-				pacienteId: "", // Limpa o select se der erro
+				pacienteId: "",
 				nomeCliente: "",
 				cpfCnpj: "",
 				enderecoCompleto: "",
@@ -75,9 +74,65 @@ export default function NotasFiscaisPage() {
 		}
 	};
 
-	// 3. EMISSÃO (POST)
+	// --- FUNÇÃO DE VALIDAÇÃO ---
+	const validateForm = () => {
+		const newErrors = {};
+
+		// 1. Paciente
+		if (!formData.pacienteId) {
+			newErrors.pacienteId = "Selecione um paciente.";
+		}
+
+		// 2. Endereço (Max 100)
+		if (!formData.enderecoCompleto) {
+			newErrors.enderecoCompleto = "Endereço é obrigatório.";
+		} else if (formData.enderecoCompleto.length > 100) {
+			newErrors.enderecoCompleto =
+				"Endereço não pode ter mais de 100 caracteres.";
+		}
+
+		// 3. Bairro (Max 100)
+		if (!formData.bairro) {
+			newErrors.bairro = "Bairro é obrigatório.";
+		} else if (formData.bairro.length > 100) {
+			newErrors.bairro = "Bairro limite de 100 caracteres.";
+		}
+
+		// 4. Município (Max 100)
+		if (!formData.municipioUf) {
+			newErrors.municipioUf = "Município é obrigatório.";
+		} else if (formData.municipioUf.length > 100) {
+			newErrors.municipioUf = "Município limite de 100 caracteres.";
+		}
+
+		// 5. Descrição (Max 255)
+		if (!formData.descricaoServico) {
+			newErrors.descricaoServico = "Descrição é obrigatória.";
+		} else if (formData.descricaoServico.length > 255) {
+			newErrors.descricaoServico = "Descrição limite de 255 caracteres.";
+		}
+
+		// 6. Valor (Numérico)
+		if (!formData.valor) {
+			newErrors.valor = "Valor é obrigatório.";
+		} else {
+			// Aceita "150", "150.50", "150,50"
+			const valorNumerico = formData.valor.replace(",", ".");
+			if (isNaN(valorNumerico)) {
+				newErrors.valor = "Digite apenas números válidos.";
+			}
+		}
+
+		setErrors(newErrors);
+		return Object.keys(newErrors).length === 0;
+	};
+
 	const handleEmitir = async (e) => {
 		e.preventDefault();
+
+		// Validação antes de enviar
+		if (!validateForm()) return;
+
 		setLoading(true);
 
 		const payload = {
@@ -113,8 +168,7 @@ export default function NotasFiscaisPage() {
 
 				alert("Nota emitida com sucesso!");
 				setIsModalOpen(false);
-				fetchData(); // Atualiza tabela
-				// Limpa form
+				fetchData();
 				setFormData({
 					pacienteId: "",
 					nomeCliente: "",
@@ -125,6 +179,7 @@ export default function NotasFiscaisPage() {
 					descricaoServico: "",
 					valor: "",
 				});
+				setErrors({});
 			} else {
 				const erroJson = await response.json().catch(() => ({}));
 				alert(
@@ -159,6 +214,15 @@ export default function NotasFiscaisPage() {
 		}
 	};
 
+	// Função auxiliar para input de valor (só permite números e vírgula/ponto)
+	const handleValorChange = (e) => {
+		const valor = e.target.value;
+		// Regex: Permite apenas digitos, um ponto ou uma virgula
+		if (/^[\d,.]*$/.test(valor)) {
+			setFormData({ ...formData, valor: valor });
+		}
+	};
+
 	const notasFiltradas = notas.filter(
 		(n) =>
 			n.nomeCliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -175,7 +239,10 @@ export default function NotasFiscaisPage() {
 					<p className='text-gray-500 mt-1'>Histórico de NFS-e emitidas</p>
 				</div>
 				<button
-					onClick={() => setIsModalOpen(true)}
+					onClick={() => {
+						setIsModalOpen(true);
+						setErrors({});
+					}}
 					className='flex items-center gap-2 bg-emerald-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-600 transition-colors'>
 					<Plus size={16} /> Emitir Nova Nota
 				</button>
@@ -254,11 +321,10 @@ export default function NotasFiscaisPage() {
 				</div>
 			)}
 
-			{/* MODAL DE EMISSÃO */}
 			{isModalOpen && (
 				<div className='fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4'>
-					<div className='bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200 h-[90vh] overflow-y-auto'>
-						<div className='flex justify-between items-center p-5 border-b sticky top-0 bg-white z-10'>
+					<div className='bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]'>
+						<div className='flex justify-between items-center p-5 border-b shrink-0'>
 							<h3 className='text-xl font-bold text-gray-800'>
 								Emitir Nova Nota Fiscal
 							</h3>
@@ -270,171 +336,228 @@ export default function NotasFiscaisPage() {
 							</button>
 						</div>
 
-						<form onSubmit={handleEmitir} className='p-6 space-y-4'>
-							<div className='bg-blue-50 p-4 rounded-lg border border-blue-100 mb-4'>
-								<label className='block text-sm font-bold text-blue-800 mb-1'>
-									Selecione o Paciente
-								</label>
-								<select
-									className='w-full border border-blue-200 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white'
-									onChange={handlePacienteChange}
-									value={formData.pacienteId} // <--- AGORA É CONTROLADO PELO STATE
-								>
-									<option value='' disabled>
-										-- Escolha um paciente da lista --
-									</option>
-									{listaPacientes.map((p) => (
-										<option key={p.id} value={p.id}>
-											{p.nome} (CPF: {p.cpf})
+						<form
+							onSubmit={handleEmitir}
+							className='flex flex-col flex-1 overflow-hidden'>
+							<div className='p-6 space-y-4 overflow-y-auto'>
+								{/* SELECT PACIENTE */}
+								<div
+									className={`bg-blue-50 p-4 rounded-lg border ${
+										errors.pacienteId
+											? "border-red-500"
+											: "border-blue-100"
+									} mb-4`}>
+									<label className='block text-sm font-bold text-blue-800 mb-1'>
+										Selecione o Paciente
+									</label>
+									<select
+										className='w-full border border-blue-200 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white'
+										onChange={handlePacienteChange}
+										value={formData.pacienteId}>
+										<option value='' disabled>
+											-- Escolha um paciente da lista --
 										</option>
-									))}
-								</select>
-								<p className='text-xs text-blue-600 mt-1'>
-									Os dados serão preenchidos automaticamente.
-								</p>
-							</div>
-							{/* ---------------------------------- */}
-
-							<div className='grid grid-cols-2 gap-4'>
-								<div>
-									<label className='block text-sm font-medium text-gray-700 mb-1'>
-										Nome do Cliente
-									</label>
-									<input
-										required
-										type='text'
-										className='w-full border p-2 rounded-lg bg-gray-50'
-										readOnly
-										value={formData.nomeCliente}
-									/>
+										{listaPacientes.map((p) => (
+											<option key={p.id} value={p.id}>
+												{p.nome} (CPF: {p.cpf})
+											</option>
+										))}
+									</select>
+									{errors.pacienteId && (
+										<p className='text-xs text-red-500 mt-1'>
+											{errors.pacienteId}
+										</p>
+									)}
+									{!errors.pacienteId && (
+										<p className='text-xs text-blue-600 mt-1'>
+											Os dados serão preenchidos automaticamente.
+										</p>
+									)}
 								</div>
-								<div>
-									<label className='block text-sm font-medium text-gray-700 mb-1'>
-										CPF / CNPJ
-									</label>
-									<input
-										required
-										type='text'
-										className='w-full border p-2 rounded-lg bg-gray-50'
-										readOnly
-										value={formData.cpfCnpj}
-									/>
-								</div>
-							</div>
 
-							<div>
-								<label className='block text-sm font-medium text-gray-700 mb-1'>
-									Endereço Completo
-								</label>
-								<input
-									required
-									type='text'
-									className='w-full border p-2 rounded-lg'
-									value={formData.enderecoCompleto}
-									onChange={(e) =>
-										setFormData({
-											...formData,
-											enderecoCompleto: e.target.value,
-										})
-									}
-								/>
-							</div>
-
-							<div className='grid grid-cols-2 gap-4'>
-								<div>
-									<label className='block text-sm font-medium text-gray-700 mb-1'>
-										Bairro
-									</label>
-									<input
-										required
-										type='text'
-										className='w-full border p-2 rounded-lg'
-										value={formData.bairro}
-										onChange={(e) =>
-											setFormData({
-												...formData,
-												bairro: e.target.value,
-											})
-										}
-									/>
-								</div>
-								<div>
-									<label className='block text-sm font-medium text-gray-700 mb-1'>
-										Município - UF
-									</label>
-									<input
-										required
-										type='text'
-										className='w-full border p-2 rounded-lg'
-										value={formData.municipioUf}
-										onChange={(e) =>
-											setFormData({
-												...formData,
-												municipioUf: e.target.value,
-											})
-										}
-									/>
-								</div>
-							</div>
-
-							<div className='border-t pt-4 mt-4'>
-								<h4 className='font-semibold text-gray-900 mb-3'>
-									Serviço Prestado
-								</h4>
-
-								<div className='space-y-4'>
+								<div className='grid grid-cols-2 gap-4'>
 									<div>
 										<label className='block text-sm font-medium text-gray-700 mb-1'>
-											Descrição do Serviço
+											Nome do Cliente
 										</label>
 										<input
 											required
 											type='text'
-											placeholder='Ex: Consulta Médica'
-											className='w-full border p-2 rounded-lg'
-											value={formData.descricaoServico}
-											onChange={(e) =>
-												setFormData({
-													...formData,
-													descricaoServico: e.target.value,
-												})
-											}
+											className='w-full border p-2 rounded-lg bg-gray-50'
+											readOnly
+											value={formData.nomeCliente}
 										/>
 									</div>
 									<div>
 										<label className='block text-sm font-medium text-gray-700 mb-1'>
-											Valor Total (R$)
+											CPF / CNPJ
 										</label>
 										<input
 											required
 											type='text'
-											placeholder='150,00'
-											className='w-full border p-2 rounded-lg'
-											value={formData.valor}
+											className='w-full border p-2 rounded-lg bg-gray-50'
+											readOnly
+											value={formData.cpfCnpj}
+										/>
+									</div>
+								</div>
+
+								{/* ENDEREÇO */}
+								<div>
+									<label className='block text-sm font-medium text-gray-700 mb-1'>
+										Endereço Completo
+									</label>
+									<input
+										required
+										type='text'
+										maxLength={100}
+										className={`w-full border p-2 rounded-lg ${
+											errors.enderecoCompleto ? "border-red-500" : ""
+										}`}
+										value={formData.enderecoCompleto}
+										onChange={(e) =>
+											setFormData({
+												...formData,
+												enderecoCompleto: e.target.value,
+											})
+										}
+									/>
+									{errors.enderecoCompleto && (
+										<p className='text-xs text-red-500 mt-1'>
+											{errors.enderecoCompleto}
+										</p>
+									)}
+								</div>
+
+								{/* BAIRRO E MUNICIPIO */}
+								<div className='grid grid-cols-2 gap-4'>
+									<div>
+										<label className='block text-sm font-medium text-gray-700 mb-1'>
+											Bairro
+										</label>
+										<input
+											required
+											type='text'
+											maxLength={100}
+											className={`w-full border p-2 rounded-lg ${
+												errors.bairro ? "border-red-500" : ""
+											}`}
+											value={formData.bairro}
 											onChange={(e) =>
 												setFormData({
 													...formData,
-													valor: e.target.value,
+													bairro: e.target.value,
 												})
 											}
 										/>
+										{errors.bairro && (
+											<p className='text-xs text-red-500 mt-1'>
+												{errors.bairro}
+											</p>
+										)}
+									</div>
+									<div>
+										<label className='block text-sm font-medium text-gray-700 mb-1'>
+											Município - UF
+										</label>
+										<input
+											required
+											type='text'
+											maxLength={100}
+											className={`w-full border p-2 rounded-lg ${
+												errors.municipioUf ? "border-red-500" : ""
+											}`}
+											value={formData.municipioUf}
+											onChange={(e) =>
+												setFormData({
+													...formData,
+													municipioUf: e.target.value,
+												})
+											}
+										/>
+										{errors.municipioUf && (
+											<p className='text-xs text-red-500 mt-1'>
+												{errors.municipioUf}
+											</p>
+										)}
+									</div>
+								</div>
+
+								<div className='border-t pt-4 mt-4'>
+									<h4 className='font-semibold text-gray-900 mb-3'>
+										Serviço Prestado
+									</h4>
+
+									<div className='space-y-4'>
+										{/* DESCRIÇÃO */}
+										<div>
+											<label className='block text-sm font-medium text-gray-700 mb-1'>
+												Descrição do Serviço
+											</label>
+											<input
+												required
+												type='text'
+												maxLength={255}
+												placeholder='Ex: Consulta Médica'
+												className={`w-full border p-2 rounded-lg ${
+													errors.descricaoServico
+														? "border-red-500"
+														: ""
+												}`}
+												value={formData.descricaoServico}
+												onChange={(e) =>
+													setFormData({
+														...formData,
+														descricaoServico: e.target.value,
+													})
+												}
+											/>
+											{errors.descricaoServico && (
+												<p className='text-xs text-red-500 mt-1'>
+													{errors.descricaoServico}
+												</p>
+											)}
+										</div>
+
+										{/* VALOR */}
+										<div>
+											<label className='block text-sm font-medium text-gray-700 mb-1'>
+												Valor Total (R$)
+											</label>
+											<input
+												required
+												type='text'
+												placeholder='150,00'
+												className={`w-full border p-2 rounded-lg ${
+													errors.valor ? "border-red-500" : ""
+												}`}
+												value={formData.valor}
+												onChange={handleValorChange} // Usa função especial para validar números
+											/>
+											{errors.valor && (
+												<p className='text-xs text-red-500 mt-1'>
+													{errors.valor}
+												</p>
+											)}
+										</div>
 									</div>
 								</div>
 							</div>
 
-							<div className='pt-4 border-t mt-4 flex justify-end gap-3'>
+							{/* RODAPÉ */}
+							<div className='p-4 border-t bg-gray-50 flex justify-end gap-3 shrink-0 rounded-b-xl'>
 								<button
 									type='button'
 									onClick={() => setIsModalOpen(false)}
-									className='px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg'>
+									className='px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors'>
 									Cancelar
 								</button>
 								<button
 									type='submit'
 									disabled={loading}
-									className='bg-emerald-500 text-white px-6 py-2 rounded-lg font-bold hover:bg-emerald-600 flex items-center gap-2'>
+									className='bg-emerald-500 text-white px-6 py-2 rounded-lg font-bold hover:bg-emerald-600 flex items-center gap-2 transition-colors shadow-md'>
 									{loading ? (
-										<Loader2 className='animate-spin' />
+										<Loader2 className='animate-spin' size={20} />
 									) : (
 										"Emitir e Baixar PDF"
 									)}
