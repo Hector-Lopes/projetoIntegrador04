@@ -9,7 +9,7 @@ public record DadosNotaFiscal(
         String bairro,
         String municipioUf,
         String valorTotal,
-        List<ItemNota> itens // <--- Agora é uma lista!
+        List<ItemNota> itens 
 ) {
     // Record interno para os itens da lista
     public record ItemNota(

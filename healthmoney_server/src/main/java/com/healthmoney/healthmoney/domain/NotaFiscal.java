@@ -33,7 +33,7 @@ public class NotaFiscal {
     @Column(name = "endereco_completo")
     private String enderecoCompleto;
 
-    private String bairro; // O banco provavelmente é 'bairro' mesmo
+    private String bairro; 
 
     @Column(name = "municipio_uf")
     private String municipioUf;

@@ -2,15 +2,21 @@ import React, { useState, useEffect } from "react";
 import { Search, Plus, FileText, Download, X, Loader2 } from "lucide-react";
 
 export default function NotasFiscaisPage() {
+	// Lista de notas fiscais emitidas (carregadas da API)
 	const [notas, setNotas] = useState([]);
+	// Lista de pacientes disponíveis para seleção na emissão da nota
 	const [listaPacientes, setListaPacientes] = useState([]);
+	// Controle de abertura/fechamento do modal de emissão de nova nota
 	const [isModalOpen, setIsModalOpen] = useState(false);
+	// Controle de estado de carregamento (para desabilitar botão e mostrar spinner)
 	const [loading, setLoading] = useState(false);
+	// Texto de busca para filtrar notas pelo nome do cliente ou número
 	const [searchTerm, setSearchTerm] = useState("");
 
-	// Estado de Erros
+	// Estado de Erros (validações do formulário)
 	const [errors, setErrors] = useState({});
 
+	// Dados do formulário para emissão de uma nova nota fiscal
 	const [formData, setFormData] = useState({
 		pacienteId: "",
 		nomeCliente: "",
@@ -22,13 +28,17 @@ export default function NotasFiscaisPage() {
 		valor: "",
 	});
 
+	// Busca inicial dos dados: notas fiscais e lista de pacientes
 	const fetchData = async () => {
 		try {
+			// Busca notas fiscais já emitidas
 			const resNotas = await fetch("/api/nfe");
 			if (resNotas.ok) setNotas(await resNotas.json());
 
+			// Busca lista de pacientes
 			const response = await fetch("/api/pacientes");
 			if (response.status === 401) {
+				// Se não autenticado, redireciona para login
 				window.location.href = "/login";
 				return;
 			}
@@ -42,10 +52,12 @@ export default function NotasFiscaisPage() {
 		}
 	};
 
+	// Executa fetchData na primeira renderização
 	useEffect(() => {
 		fetchData();
 	}, []);
 
+	// Atualiza dados do formulário ao selecionar um paciente
 	const handlePacienteChange = (e) => {
 		const pid = e.target.value;
 		const pacienteSelecionado = listaPacientes.find(
@@ -53,6 +65,7 @@ export default function NotasFiscaisPage() {
 		);
 
 		if (pacienteSelecionado) {
+			// Preenche automaticamente os campos relacionados ao paciente
 			setFormData((prev) => ({
 				...prev,
 				pacienteId: pid,
@@ -64,6 +77,7 @@ export default function NotasFiscaisPage() {
 			}));
 			setErrors({}); // Limpa erros ao selecionar paciente
 		} else {
+			// Se limpar seleção, limpa campos também
 			setFormData((prev) => ({
 				...prev,
 				pacienteId: "",
@@ -74,16 +88,16 @@ export default function NotasFiscaisPage() {
 		}
 	};
 
-	// --- FUNÇÃO DE VALIDAÇÃO ---
+	// --- FUNÇÃO DE VALIDAÇÃO DO FORMULÁRIO ---
 	const validateForm = () => {
 		const newErrors = {};
 
-		// 1. Paciente
+		// 1. Paciente é obrigatório
 		if (!formData.pacienteId) {
 			newErrors.pacienteId = "Selecione um paciente.";
 		}
 
-		// 2. Endereço (Max 100)
+		// 2. Endereço: obrigatório e com no máximo 100 caracteres
 		if (!formData.enderecoCompleto) {
 			newErrors.enderecoCompleto = "Endereço é obrigatório.";
 		} else if (formData.enderecoCompleto.length > 100) {
@@ -91,28 +105,28 @@ export default function NotasFiscaisPage() {
 				"Endereço não pode ter mais de 100 caracteres.";
 		}
 
-		// 3. Bairro (Max 100)
+		// 3. Bairro: obrigatório e com no máximo 100 caracteres
 		if (!formData.bairro) {
 			newErrors.bairro = "Bairro é obrigatório.";
 		} else if (formData.bairro.length > 100) {
 			newErrors.bairro = "Bairro limite de 100 caracteres.";
 		}
 
-		// 4. Município (Max 100)
+		// 4. Município: obrigatório e com no máximo 100 caracteres
 		if (!formData.municipioUf) {
 			newErrors.municipioUf = "Município é obrigatório.";
 		} else if (formData.municipioUf.length > 100) {
 			newErrors.municipioUf = "Município limite de 100 caracteres.";
 		}
 
-		// 5. Descrição (Max 255)
+		// 5. Descrição do serviço: obrigatória e com no máximo 255 caracteres
 		if (!formData.descricaoServico) {
 			newErrors.descricaoServico = "Descrição é obrigatória.";
 		} else if (formData.descricaoServico.length > 255) {
 			newErrors.descricaoServico = "Descrição limite de 255 caracteres.";
 		}
 
-		// 6. Valor (Numérico)
+		// 6. Valor: obrigatório e numérico (aceita vírgula ou ponto)
 		if (!formData.valor) {
 			newErrors.valor = "Valor é obrigatório.";
 		} else {
@@ -124,17 +138,20 @@ export default function NotasFiscaisPage() {
 		}
 
 		setErrors(newErrors);
+		// Retorna true se não houver erros
 		return Object.keys(newErrors).length === 0;
 	};
 
+	// Envio do formulário para emitir a nota fiscal
 	const handleEmitir = async (e) => {
 		e.preventDefault();
 
 		// Validação antes de enviar
 		if (!validateForm()) return;
 
-		setLoading(true);
+		setLoading(true); // Ativa estado de carregamento
 
+		// Monta o payload no formato esperado pela API de emissão de NFS-e
 		const payload = {
 			...formData,
 			valorTotal: formData.valor,
@@ -157,6 +174,7 @@ export default function NotasFiscaisPage() {
 			});
 
 			if (response.ok) {
+				// Backend retorna um PDF (blob). Aqui é feito o download automático.
 				const blob = await response.blob();
 				const url = window.URL.createObjectURL(blob);
 				const a = document.createElement("a");
@@ -167,8 +185,10 @@ export default function NotasFiscaisPage() {
 				a.remove();
 
 				alert("Nota emitida com sucesso!");
-				setIsModalOpen(false);
-				fetchData();
+				setIsModalOpen(false); // Fecha modal
+				fetchData(); // Recarrega lista de notas
+
+				// Limpa formulário e erros após emissão
 				setFormData({
 					pacienteId: "",
 					nomeCliente: "",
@@ -181,6 +201,7 @@ export default function NotasFiscaisPage() {
 				});
 				setErrors({});
 			} else {
+				// Tenta ler mensagem de erro do backend
 				const erroJson = await response.json().catch(() => ({}));
 				alert(
 					"Erro ao emitir nota: " +
@@ -190,10 +211,11 @@ export default function NotasFiscaisPage() {
 		} catch (error) {
 			console.error(error);
 		} finally {
-			setLoading(false);
+			setLoading(false); // Finaliza estado de carregamento
 		}
 	};
 
+	// Download de um PDF de nota fiscal já emitida
 	const handleDownload = async (id) => {
 		try {
 			const response = await fetch(`/api/nfe/${id}/pdf`);
@@ -217,12 +239,13 @@ export default function NotasFiscaisPage() {
 	// Função auxiliar para input de valor (só permite números e vírgula/ponto)
 	const handleValorChange = (e) => {
 		const valor = e.target.value;
-		// Regex: Permite apenas digitos, um ponto ou uma virgula
+		// Regex: permite apenas dígitos, pontos e vírgulas
 		if (/^[\d,.]*$/.test(valor)) {
 			setFormData({ ...formData, valor: valor });
 		}
 	};
 
+	// Aplica filtro nas notas com base no termo de busca (nome do cliente ou id)
 	const notasFiltradas = notas.filter(
 		(n) =>
 			n.nomeCliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -231,6 +254,7 @@ export default function NotasFiscaisPage() {
 
 	return (
 		<main className='flex-1 ml-64 p-8 relative'>
+			{/* Cabeçalho da página com título e botão para emitir nova nota */}
 			<header className='flex justify-between items-center mb-8'>
 				<div>
 					<h2 className='text-3xl font-bold text-gray-900'>
@@ -241,13 +265,14 @@ export default function NotasFiscaisPage() {
 				<button
 					onClick={() => {
 						setIsModalOpen(true);
-						setErrors({});
+						setErrors({}); // Limpa erros ao abrir modal
 					}}
 					className='flex items-center gap-2 bg-emerald-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-600 transition-colors'>
 					<Plus size={16} /> Emitir Nova Nota
 				</button>
 			</header>
 
+			{/* Campo de busca para filtrar notas por cliente ou número */}
 			<div className='bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 relative'>
 				<Search className='absolute left-7 top-7 text-gray-400' size={20} />
 				<input
@@ -259,6 +284,7 @@ export default function NotasFiscaisPage() {
 				/>
 			</div>
 
+			{/* Se não há notas, mostra estado vazio */}
 			{notas.length === 0 ? (
 				<div className='bg-white p-6 rounded-xl shadow-sm border border-gray-100 min-h-[400px] flex flex-col items-center justify-center'>
 					<FileText size={48} className='text-gray-300' />
@@ -267,6 +293,7 @@ export default function NotasFiscaisPage() {
 					</p>
 				</div>
 			) : (
+				// Tabela com lista de notas filtradas
 				<div className='bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden'>
 					<table className='w-full text-left'>
 						<thead className='bg-gray-50 border-b border-gray-100'>
@@ -302,9 +329,11 @@ export default function NotasFiscaisPage() {
 										</span>
 									</td>
 									<td className='p-4 text-gray-600'>
+										{/* Formata a data de emissão para o locale do navegador */}
 										{new Date(nota.dataEmissao).toLocaleDateString()}
 									</td>
 									<td className='p-4 font-medium text-emerald-600'>
+										{/* Exibe o valor formatado com 2 casas decimais */}
 										R$ {nota.valorTotal?.toFixed(2)}
 									</td>
 									<td className='p-4 text-right'>
@@ -321,9 +350,11 @@ export default function NotasFiscaisPage() {
 				</div>
 			)}
 
+			{/* Modal de emissão de nova nota fiscal */}
 			{isModalOpen && (
 				<div className='fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4'>
 					<div className='bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]'>
+						{/* Cabeçalho do modal */}
 						<div className='flex justify-between items-center p-5 border-b shrink-0'>
 							<h3 className='text-xl font-bold text-gray-800'>
 								Emitir Nova Nota Fiscal
@@ -336,6 +367,7 @@ export default function NotasFiscaisPage() {
 							</button>
 						</div>
 
+						{/* Formulário de emissão */}
 						<form
 							onSubmit={handleEmitir}
 							className='flex flex-col flex-1 overflow-hidden'>
@@ -375,6 +407,7 @@ export default function NotasFiscaisPage() {
 									)}
 								</div>
 
+								{/* Dados básicos do cliente (nome e CPF/CNPJ) */}
 								<div className='grid grid-cols-2 gap-4'>
 									<div>
 										<label className='block text-sm font-medium text-gray-700 mb-1'>
@@ -483,6 +516,7 @@ export default function NotasFiscaisPage() {
 									</div>
 								</div>
 
+								{/* Seção de serviço prestado */}
 								<div className='border-t pt-4 mt-4'>
 									<h4 className='font-semibold text-gray-900 mb-3'>
 										Serviço Prestado
@@ -544,7 +578,7 @@ export default function NotasFiscaisPage() {
 								</div>
 							</div>
 
-							{/* RODAPÉ */}
+							{/* Rodapé do modal com botões de ação */}
 							<div className='p-4 border-t bg-gray-50 flex justify-end gap-3 shrink-0 rounded-b-xl'>
 								<button
 									type='button'
