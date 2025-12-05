@@ -1,79 +1,181 @@
-# projetoIntegrador04
+# 🧾 HealthMoney --- Sistema de Gestão Financeira e Clínica
 
-## projetoIntegrador04
+O **HealthMoney** é uma aplicação completa para gestão financeira e
+administrativa de clínicas, permitindo controle de pacientes, despesas,
+notas fiscais, relatórios financeiros e integração com a Google Agenda.
 
-##########################################################################
+O projeto é dividido em dois módulos:
 
-### Insert calendario
+-  **healthmoney_dashboard_vite** → Frontend (Vite + React)
+-  **healthmoney_server** → Backend (Java + Spring Boot)
 
-## http://localhost:8080/agenda/criar POST
+---
 
-# Headers
+## 📌 **Equipe**
 
-Key = Cookie
-Value = JSESSIONID=token pega no > f12 > apllication > Cookies
+-  **Caio Eduardo Monforte Medeiros** --- RA **24017959**
+-  **Johnas Pereira Ignacio** --- RA **24009371**
+-  **João Pedro Barbosa da Silva** --- RA **25016974**
+-  **Hector Lopes** --- RA **25013988**
 
-# Body
+---
 
-{
-"titulo": "Consulta Dr. Hector",
-"dataInicio": "2025-12-25T14:00:00",
-"dataFim": "2025-12-25T15:00:00",
-"descricao": "Consulta de rotina",
-"emailPaciente": "email.do.paciente@gmail.com"
-}
+# 🚀 Tecnologias Utilizadas
 
-##########################################################################
+### **Frontend**
 
-### Delete calendario
+-  Vite
+-  React
+-  Axios
+-  Tailwind (se aplicável)
+-  XLSX (geração de arquivos Excel)
 
-## http://localhost:8080/agenda/deletar/{id} DELETE
+### **Backend**
 
-# Headers
+-  Java 17+
+-  Spring Boot
+-  Spring Security
+-  JPA / Hibernate
+-  MySQL
+-  Maven
+-  Integração com Google API (Agenda)
 
-Key = Cookie
-Value = JSESSIONID=token pega no > f12 > apllication > Cookies
+---
 
-##########################################################################
+# 📁 Estrutura do Projeto
 
-### Listar dados do calendario
+    projetoIntegrador04/
+    │
+    ├── healthmoney_dashboard_vite/   # Frontend (React + Vite)
+    │
+    └── healthmoney_server/           # Backend (Spring Boot)
 
-## http://localhost:8080/agenda/listar GET
+---
 
-# Headers
+# ⚙️ Como Executar o Projeto
 
-Key = Cookie
-Value = JSESSIONID=token pega no > f12 > apllication > Cookies
+A seguir estão todos os passos para que os professores consigam **baixar
+o código e executá-lo em ambiente de testes**.
 
-##########################################################################
+---
 
-#### Gerar nota fiscal
+# 🖥️ Backend --- Spring Boot
 
-## http://localhost:8080/nfe/baixar-pdf
+## ✅ **1. Requisitos**
 
-# Body
+-  Java 17+
+-  Maven
+-  MySQL
+-  Google Credentials (para integração com Agenda --- opcional)
 
-{
-"nomeCliente": "Maria da Silva",
-"cpfCnpj": "123.456.789-00",
-"enderecoCompleto": "Av. Paulista, 1000 - Apto 54",
-"bairro": "Bela Vista",
-"municipioUf": "São Paulo - SP",
-"valorTotal": "450,00",
-"itens": [
-{
-"codigo": "001",
-"descricao": "Sessão de Fisioterapia",
-"qtd": "2",
-"valorUnitario": "150,00",
-"valorTotal": "300,00"
-},
-{
-"codigo": "002",
-"descricao": "Taxa de Avaliação",
-"qtd": "1",
-"valorUnitario": "150,00",
-"valorTotal": "150,00"
-}
-]
-}
+---
+
+## 🔧 **2. Configurar o Banco de Dados**
+
+Crie o banco:
+
+```sql
+CREATE DATABASE healthmoney;
+```
+
+Edite:
+
+    healthmoney_server/src/main/resources/application.properties
+
+E configure:
+
+```properties
+spring.datasource.url=jdbc:mysql://localhost:3306/healthmoney
+spring.datasource.username=SEU_USUARIO
+spring.datasource.password=SUA_SENHA
+
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+```
+
+---
+
+## ▶️ **3. Rodar o Backend**
+
+```bash
+cd healthmoney_server
+mvn spring-boot:run
+```
+
+A API estará em:
+
+    http://localhost:8080
+
+---
+
+# 🌐 Frontend --- Vite + React
+
+## ✅ **1. Requisitos**
+
+-  Node.js 18+
+
+---
+
+## 📦 **2. Instalar Dependências**
+
+```bash
+cd healthmoney_dashboard_vite
+npm install
+```
+
+---
+
+## ▶️ **3. Rodar o Frontend**
+
+```bash
+npm run dev
+```
+
+Rodará em:
+
+    http://localhost:5173
+
+---
+
+# 🔐 Login
+
+> Ajustar conforme configuração do Spring Security.
+
+Exemplo:
+
+    Usuário: admin
+    Senha: admin123
+
+---
+
+# 📡 Integração com Google Agenda
+
+Colocar o arquivo `credentials.json` em:
+
+    healthmoney_server/src/main/resources/credentials.json
+
+---
+
+# 📦 Build Produção
+
+### Backend
+
+```bash
+mvn clean package
+```
+
+Gera:
+
+    healthmoney_server/target/healthmoney.jar
+
+### Frontend
+
+```bash
+npm run build
+```
+
+---
+
+# 📄 Licença
+
+Projeto acadêmico --- PUC / Projeto Integrador.
